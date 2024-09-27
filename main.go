@@ -29,7 +29,7 @@ func main() {
 	for _, p := range points {
 		fmt.Printf("ID: %s, Lat: %f, Lng: %f, Time: %d\n", p.ID, p.Latitude, p.Longitude, p.Timestamp)
 	}
-	fmt.Println("we have %d of data before filtering", len(points))
+	fmt.Printf("we have %d of data before filtering\n", len(points))
 	fmt.Println("After filtering : ")
 
 	filteredPoints := filterInvalidPoints(points)
@@ -37,7 +37,7 @@ func main() {
 	for _, p := range filteredPoints {
 		fmt.Printf("ID: %s, Lat: %f, Lng: %f, Time: %d\n", p.ID, p.Latitude, p.Longitude, p.Timestamp)
 	}
-	fmt.Println("we have %d of data after filtering", len(filteredPoints))
+	fmt.Printf("we have %d of data after filtering\n", len(filteredPoints))
 
 }
 
