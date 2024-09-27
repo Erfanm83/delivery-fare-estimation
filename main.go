@@ -60,43 +60,6 @@ func haversine(lat1, lon1, lat2, lon2 float64) float64 {
 	return radiusEarthKm * c
 }
 
-// read and filter the data
-// func readAndFilterData(filename string) ([]DeliveryPoint, error) {
-
-// 	file, err := os.Open(filename)
-
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	defer file.Close()
-
-// 	reader := csv.NewReader(file)
-// 	rawCSVData, err := reader.ReadAll()
-
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	var points []DeliveryPoint
-// 	for i, line := range rawCSVData {
-// 		if i == 0 { // Skip header
-// 			continue
-// 		}
-// 		lat, _ := strconv.ParseFloat(line[1], 64)
-// 		lng, _ := strconv.ParseFloat(line[2], 64)
-// 		timestamp, _ := strconv.ParseInt(line[3], 10, 64)
-// 		points = append(points, DeliveryPoint{
-// 			ID:        line[0],
-// 			Latitude:  lat,
-// 			Longitude: lng,
-// 			Timestamp: timestamp,
-// 		})
-// 	}
-// 	return points, nil
-
-// }
-
 // readDataChunks reads rows from a CSV file starting from 'startRow' for a specific delivery ID
 // until a different delivery ID is encountered.
 func readDataChunks(deliveryID string, startRow int) ([]DeliveryPoint, error) {
