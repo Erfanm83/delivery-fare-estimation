@@ -1,10 +1,7 @@
 package main
 
 import (
-	"bytes"
-	"encoding/csv"
-	"io"
-	"strconv"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -21,43 +18,21 @@ func TestHaversine(t *testing.T) {
 }
 
 func TestReadAndFilterData(t *testing.T) {
-	// Mock CSV data
-	// csvData is defined, which shows the contents of a CSV file.
-	csvData := `id,lat,lng,timestamp
-				1,34.0522,-118.2437,1597680651
-				2,36.7783,-119.4179,1597680652`
+	// The path of Tests Files
+	path := filepath.Join(".", "sample_data.csv")
 
-	reader := csv.NewReader(bytes.NewBufferString(csvData))
-	_, err := reader.Read() // Read header to skip
+	// Call the function with the file
+	points, err := readAndFilterData(path)
+	assert.NoError(t, err, "Failed to read and filter data from file")
 
-	// handle error
-	if err != nil {
-		return
+	// Test for expected results
+	expectedNumberOfPoints := 97 // The number expected to Read from csv file
+	assert.Equal(t, expectedNumberOfPoints, len(points), "Number of parsed points does not match expected")
+
+	// Further assertions can check for specific data integrity and values
+	if len(points) > 0 {
+		assert.Equal(t, "1", points[0].ID, "First point ID should be 1")
+		assert.InDelta(t, 35.706552, points[0].Latitude, 0.0001, "Latitude of first point should match")
+		assert.InDelta(t, 51.412262, points[0].Longitude, 0.0001, "Longitude of first point should match")
 	}
-
-	var points []DeliveryPoint
-	for {
-		line, err := reader.Read()
-		if err == io.EOF {
-			break
-		}
-		assert.NoError(t, err)
-		lat, err := strconv.ParseFloat(line[1], 64)
-		assert.NoError(t, err)
-		lng, err := strconv.ParseFloat(line[2], 64)
-		assert.NoError(t, err)
-		timestamp, err := strconv.ParseInt(line[3], 10, 64)
-		assert.NoError(t, err)
-
-		points = append(points, DeliveryPoint{
-			ID:        line[0],
-			Latitude:  lat,
-			Longitude: lng,
-			Timestamp: timestamp,
-		})
-	}
-
-	// Ensure data is read correctly
-	assert.Len(t, points, 2, "Two points should be read from the CSV data")
-	assert.Equal(t, "1", points[0].ID, "First point ID should match")
 }
