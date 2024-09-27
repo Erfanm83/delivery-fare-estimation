@@ -1,7 +1,6 @@
 package main
 
 import (
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -9,30 +8,35 @@ import (
 
 func TestHaversine(t *testing.T) {
 	// Testing with known geographical coordinates
-	result := haversine(51.5007, 0.1246, 40.6892, 74.0445) //London to New York
-	// expected distance in kilometers
-	expected := 5575.0
+	result := haversine(51.5007, 0.1246, 40.6892, 74.0445) // London to New York
+	expected := 5575.0                                     // expected distance in kilometers
 
-	// The distance should be accurate within a small margin of error
+	// The distance should be accurate within a small error
 	assert.InEpsilon(t, expected, result, 0.01, "Haversine function should calculate correct distance")
 }
 
-func TestReadAndFilterData(t *testing.T) {
-	// The path of Tests Files
-	path := filepath.Join(".", "sample_data.csv")
+func TestReadDataChunks(t *testing.T) {
+	//assuming "3" exists at line 58
+	startRow := 58
+	deliveryID := "3"
 
-	// Call the function with the file
-	points, err := readAndFilterData(path)
-	assert.NoError(t, err, "Failed to read and filter data from file")
+	points, err := readDataChunks(deliveryID, startRow)
+	assert.NoError(t, err, "Failed to read data chunks from file")
+	assert.NotEmpty(t, points, "No points were read; expected at least one matching point")
 
-	// Test for expected results
-	expectedNumberOfPoints := 97 // The number expected to Read from csv file
-	assert.Equal(t, expectedNumberOfPoints, len(points), "Number of parsed points does not match expected")
-
-	// Further assertions can check for specific data integrity and values
 	if len(points) > 0 {
-		assert.Equal(t, "1", points[0].ID, "First point ID should be 1")
-		assert.InDelta(t, 35.706552, points[0].Latitude, 0.0001, "Latitude of first point should match")
-		assert.InDelta(t, 51.412262, points[0].Longitude, 0.0001, "Longitude of first point should match")
+		assert.Equal(t, deliveryID, points[0].ID, "The first point should have the correct delivery ID")
 	}
+}
+
+func TestFilterInvalidPoints(t *testing.T) {
+	points := []DeliveryPoint{
+		{ID: "1", Latitude: 35.0, Longitude: 40.0, Timestamp: 1000},
+		{ID: "1", Latitude: 35.0, Longitude: 40.0, Timestamp: 1300}, // Within valid speed limits
+		{ID: "1", Latitude: 36.0, Longitude: 41.0, Timestamp: 2000}, // Exceeds valid speed limits
+	}
+
+	filteredPoints := filterInvalidPoints(points)
+	assert.Len(t, filteredPoints, 2, "Expected only valid points to be returned")
+	assert.Equal(t, int64(1300), filteredPoints[1].Timestamp, "Filtered points should include the point with valid speed")
 }
