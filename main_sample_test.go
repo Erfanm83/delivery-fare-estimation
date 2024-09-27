@@ -9,7 +9,7 @@ import (
 
 func TestHaversine(t *testing.T) {
 	// Testing with known geographical coordinates
-	result := haversine(51.5007, 0.1246, 40.6892, 74.0445) // London to New York
+	result := haversine(51.5007, 0.1246, 40.6892, 74.0445) //London to New York
 	// expected distance in kilometers
 	expected := 5575.0
 
