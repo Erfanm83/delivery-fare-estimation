@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/csv"
+	"fmt"
 	"math"
 	"os"
 	"strconv"
@@ -20,14 +21,23 @@ const (
 
 func main() {
 	// start reading from the second row and look for delivery ID "2"
-	points, err := readDataChunks("2", 26) // Adjust the row index based on whether data includes a header
+	points, err := readDataChunks("3", 58)
 	if err != nil {
 		panic(err)
 	}
 
-	for _, point := range points {
-		println("ID:", point.ID, "Lat:", point.Latitude, "Lng:", point.Longitude, "Timestamp:", point.Timestamp)
+	for _, p := range points {
+		fmt.Printf("ID: %s, Lat: %f, Lng: %f, Time: %d\n", p.ID, p.Latitude, p.Longitude, p.Timestamp)
 	}
+	fmt.Println("we have %d of data before filtering", len(points))
+	fmt.Println("After filtering : ")
+
+	filteredPoints := filterInvalidPoints(points)
+	// Output or use filteredPoints as needed
+	for _, p := range filteredPoints {
+		fmt.Printf("ID: %s, Lat: %f, Lng: %f, Time: %d\n", p.ID, p.Latitude, p.Longitude, p.Timestamp)
+	}
+	fmt.Println("we have %d of data after filtering", len(filteredPoints))
 
 }
 
@@ -131,24 +141,24 @@ func readDataChunks(deliveryID string, startRow int) ([]DeliveryPoint, error) {
 }
 
 // filterInvalidPoints filters out points based on speed calculations between consecutive points.
-// func filterInvalidPoints(points []DeliveryPoint) []DeliveryPoint {
-// 	var validPoints []DeliveryPoint
-// 	if len(points) == 0 {
-// 		return validPoints
-// 	}
-// 	validPoints = append(validPoints, points[0]) // Add the first point by default
+func filterInvalidPoints(points []DeliveryPoint) []DeliveryPoint {
+	var validPoints []DeliveryPoint
+	if len(points) == 0 {
+		return validPoints
+	}
+	validPoints = append(validPoints, points[0]) // Add the first point by default
 
-// 	for i := 1; i < len(points); i++ {
-// 		p1 := points[i-1]
-// 		p2 := points[i]
-// 		distance := haversine(p1.Latitude, p1.Longitude, p2.Latitude, p2.Longitude)
-// 		timeDiff := math.Abs(float64(p2.Timestamp - p1.Timestamp))
-// 		speed := (distance / timeDiff) * 3600 // speed in km/h
+	for i := 1; i < len(points); i++ {
+		p1 := points[i-1]
+		p2 := points[i]
+		distance := haversine(p1.Latitude, p1.Longitude, p2.Latitude, p2.Longitude)
+		timeDiff := math.Abs(float64(p2.Timestamp - p1.Timestamp))
+		speed := (distance / timeDiff) * 3600 // speed in km/h
 
-// 		if speed <= 100 {
-// 			validPoints = append(validPoints, p2)
-// 		}
-// 	}
+		if speed <= 100 {
+			validPoints = append(validPoints, p2)
+		}
+	}
 
-// 	return validPoints
-// }
+	return validPoints
+}
