@@ -19,8 +19,8 @@ const (
 )
 
 func main() {
-	// Assuming you want to start reading from the second row and look for delivery ID "2"
-	points, err := readDataChunks("2", 26) // Adjust the row index based on whether your data includes a header
+	// start reading from the second row and look for delivery ID "2"
+	points, err := readDataChunks("2", 26) // Adjust the row index based on whether data includes a header
 	if err != nil {
 		panic(err)
 	}
