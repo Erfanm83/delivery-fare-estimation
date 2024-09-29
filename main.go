@@ -3,9 +3,12 @@ package main
 import (
 	"encoding/csv"
 	"fmt"
+	"io"
+	"log"
 	"math"
 	"os"
 	"strconv"
+	"sync"
 )
 
 type DeliveryPoint struct {
@@ -19,26 +22,69 @@ const (
 	radiusEarthKm = 6371.0 //radius of earth in kilometers
 )
 
+var mu sync.Mutex
+var headerWritten = false // Global flag to ensure header is written only oncevar Header bool = false
+
 func main() {
-	// start reading from the second row and look for delivery ID "2"
-	points, err := readDataChunks("3", 58)
+	chunks, err := readDataChunks("sample_data.csv")
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
-	for _, p := range points {
-		fmt.Printf("ID: %s, Lat: %f, Lng: %f, Time: %d\n", p.ID, p.Latitude, p.Longitude, p.Timestamp)
-	}
-	fmt.Printf("we have %d of data before filtering\n", len(points))
-	fmt.Println("After filtering : ")
+	var wg sync.WaitGroup
+	for chunk := range chunks {
 
-	filteredPoints := filterInvalidPoints(points)
+		wg.Add(1)
+		go func(chunk []DeliveryPoint) {
+			defer wg.Done()
+			if len(chunk) == 0 {
+				return
+			}
+			deliveryID := chunk[0].ID // Assuming all points in the chunk have the same ID
+			filteredChunk := filterInvalidPoints(chunk)
+			fare := calculateFare(filteredChunk)
+			fmt.Printf("deliveryID : %v,fare : %v\n", deliveryID, fare)
+
+			fmt.Printf("------------------------------------------------------------------------\n")
+			outputFareResults(deliveryID, fare)
+		}(chunk)
+	}
+	wg.Wait()
+
+	// start reading from the second row and look for delivery ID "2"
+	// points, err := readDataChunks("3", 58)
+	// if err != nil {
+	// 	panic(err)
+	// }
+
+	// for _, p := range points {
+	// 	fmt.Printf("ID: %s, Lat: %f, Lng: %f, Time: %d\n", p.ID, p.Latitude, p.Longitude, p.Timestamp)
+	// }
+	// fmt.Printf("we have %d of data before filtering\n", len(points))
+	// fmt.Println("After filtering : ")
+
+	// filteredPoints := filterInvalidPoints(points)
 	// Output or use filteredPoints as needed
-	for _, p := range filteredPoints {
-		fmt.Printf("ID: %s, Lat: %f, Lng: %f, Time: %d\n", p.ID, p.Latitude, p.Longitude, p.Timestamp)
-	}
-	fmt.Printf("we have %d of data after filtering\n", len(filteredPoints))
+	// for _, p := range filteredPoints {
+	// 	fmt.Printf("ID: %s, Lat: %f, Lng: %f, Time: %d\n", p.ID, p.Latitude, p.Longitude, p.Timestamp)
+	// }
+	// fmt.Printf("we have %d of data after filtering\n", len(filteredPoints))
 
+	// finalFares := calculateFares(filteredPoints)
+
+	// file, err := os.Create("output_fares.csv")
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+	// defer file.Close()
+
+	// writer := csv.NewWriter(file)
+	// defer writer.Flush()
+
+	// writer.Write([]string{"id_delivery", "fare_estimate"}) // Writing header
+	// for id, fare := range finalFares {
+	// 	writer.Write([]string{id, fmt.Sprintf("%.2f", fare)})
+	// }
 }
 
 // haversine func to calculate distance
@@ -60,84 +106,56 @@ func haversine(lat1, lon1, lat2, lon2 float64) float64 {
 	return radiusEarthKm * c
 }
 
-// read and filter the data
-// func readAndFilterData(filename string) ([]DeliveryPoint, error) {
-
-// 	file, err := os.Open(filename)
-
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	defer file.Close()
-
-// 	reader := csv.NewReader(file)
-// 	rawCSVData, err := reader.ReadAll()
-
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	var points []DeliveryPoint
-// 	for i, line := range rawCSVData {
-// 		if i == 0 { // Skip header
-// 			continue
-// 		}
-// 		lat, _ := strconv.ParseFloat(line[1], 64)
-// 		lng, _ := strconv.ParseFloat(line[2], 64)
-// 		timestamp, _ := strconv.ParseInt(line[3], 10, 64)
-// 		points = append(points, DeliveryPoint{
-// 			ID:        line[0],
-// 			Latitude:  lat,
-// 			Longitude: lng,
-// 			Timestamp: timestamp,
-// 		})
-// 	}
-// 	return points, nil
-
-// }
-
 // readDataChunks reads rows from a CSV file starting from 'startRow' for a specific delivery ID
 // until a different delivery ID is encountered.
-func readDataChunks(deliveryID string, startRow int) ([]DeliveryPoint, error) {
-	file, err := os.Open("sample_data.csv")
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
-	reader := csv.NewReader(file)
-	var points []DeliveryPoint
-
-	// Move the reader to the startRow, skipping the initial rows
-	for i := 0; i < startRow-1; i++ {
-		if _, err = reader.Read(); err != nil {
-			return nil, err // Handle EOF or other read errors
-		}
-	}
-
-	// Start reading from startRow, and collect points until the ID changes
-	for {
-		line, err := reader.Read()
+func readDataChunks(filePath string) (chan []DeliveryPoint, error) {
+	ch := make(chan []DeliveryPoint)
+	go func() {
+		defer close(ch)
+		file, err := os.Open(filePath)
 		if err != nil {
-			break // Stop on EOF or other read errors
+			log.Fatal(err) // Handle the error as appropriate for your case
+			return
 		}
-		if line[0] != deliveryID {
-			break // Stop if the delivery ID is different
+		defer file.Close()
+
+		reader := csv.NewReader(file)
+		var currentID string
+		var points []DeliveryPoint
+
+		for {
+			line, err := reader.Read()
+			if err == io.EOF {
+				if len(points) > 0 {
+					ch <- points // send the last batch
+				}
+				break
+			}
+			if err != nil {
+				log.Fatal(err) // Handle the error as appropriate for your case
+				return
+			}
+
+			if currentID != "" && line[0] != currentID {
+				ch <- points
+				points = nil // start a new batch
+			}
+
+			if line[0] != "id_delivery" {
+				currentID = line[0]
+				lat, _ := strconv.ParseFloat(line[1], 64)
+				lng, _ := strconv.ParseFloat(line[2], 64)
+				timestamp, _ := strconv.ParseInt(line[3], 10, 64)
+				points = append(points, DeliveryPoint{
+					ID:        line[0],
+					Latitude:  lat,
+					Longitude: lng,
+					Timestamp: timestamp,
+				})
+			}
 		}
-
-		lat, _ := strconv.ParseFloat(line[1], 64)
-		lng, _ := strconv.ParseFloat(line[2], 64)
-		timestamp, _ := strconv.ParseInt(line[3], 10, 64)
-		points = append(points, DeliveryPoint{
-			ID:        line[0],
-			Latitude:  lat,
-			Longitude: lng,
-			Timestamp: timestamp,
-		})
-	}
-
-	return points, nil
+	}()
+	return ch, nil
 }
 
 // filterInvalidPoints filters out points based on speed calculations between consecutive points.
@@ -161,4 +179,80 @@ func filterInvalidPoints(points []DeliveryPoint) []DeliveryPoint {
 	}
 
 	return validPoints
+}
+
+func calculateFare(points []DeliveryPoint) float64 {
+	if len(points) < 2 {
+		return 0 // No fare if there's less than two points
+	}
+
+	// Add the standard 'flag' amount at the start of each delivery
+	var totalFare float64 = 1.30
+
+	for i := 1; i < len(points); i++ {
+		// Calculate distance between consecutive points
+		distance := haversine(points[i-1].Latitude, points[i-1].Longitude, points[i].Latitude, points[i].Longitude)
+		timeDiff := float64(points[i].Timestamp-points[i-1].Timestamp) / 3600.0 // Time difference in hours
+		speed := (distance / timeDiff)                                          // Speed in km/h
+
+		// Extract the hour from the timestamp (assuming timestamps are UNIX-based in seconds)
+		hour := (points[i-1].Timestamp / 3600) % 24 // Hour of the day (0 to 23)
+
+		if speed > 10 {
+			// If the vehicle is moving
+			if hour >= 5 && hour < 24 {
+				// Daytime rate: from 5:00 AM to Midnight
+				totalFare += distance * 0.74
+			} else {
+				// Nighttime rate: from Midnight to 5:00 AM
+				totalFare += distance * 1.30
+			}
+		} else {
+			// If the vehicle is idle (speed <= 10 km/h), charge based on time
+			totalFare += timeDiff * 11.90 // Idle rate
+		}
+	}
+
+	// Ensure the minimum delivery fare is 3.47
+	if totalFare < 3.47 {
+		totalFare = 3.47
+	}
+
+	return totalFare
+}
+
+func outputFareResults(deliveryID string, fare float64) {
+	filePath := "fares.csv"
+
+	mu.Lock() // Ensure that no other goroutine can enter this section while one is working
+
+	// Open the file with append mode and create if not exists
+	file, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	writer := csv.NewWriter(file)
+	defer writer.Flush()
+
+	// Check and write header if not already done
+	if !headerWritten {
+		header := []string{"id_delivery", "fare"}
+		if err := writer.Write(header); err != nil {
+			log.Fatal("Error writing header:", err)
+		}
+		headerWritten = true // Set the flag to true after writing the header
+	}
+
+	mu.Unlock() // Release the mutex lock after the header check
+
+	// Write the fare data
+	record := []string{
+		deliveryID,
+		fmt.Sprintf("%.2f", fare),
+	}
+	if err := writer.Write(record); err != nil {
+		log.Fatal("Error writing record:", err)
+	}
 }
