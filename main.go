@@ -22,8 +22,8 @@ const (
 	radiusEarthKm = 6371.0 //radius of earth in kilometers
 )
 
-// var mu sync.Mutex
-// var headerWritten = false // Global flag to ensure header is written only oncevar Header bool = false
+var mu sync.Mutex
+var headerWritten = false // Global flag to ensure header is written only oncevar Header bool = false
 
 func main() {
 	chunks, err := readDataChunks("sample_data.csv")
@@ -49,7 +49,7 @@ func main() {
 			fmt.Printf("deliveryID : %v,fare : %v\n", deliveryID, fare)
 
 			fmt.Printf("------------------------------------------------------------------------\n")
-			// outputFareResults(deliveryID, fare)
+			outputFareResults(deliveryID, fare)
 		}(chunk)
 	}
 	wg.Wait()
@@ -236,38 +236,38 @@ func calculateFare(points []DeliveryPoint) float64 {
 	return totalFare
 }
 
-// func outputFareResults(deliveryID string, fare float64) {
-// 	filePath := "fares.csv"
+func outputFareResults(deliveryID string, fare float64) {
+	filePath := "fares.csv"
 
-// 	mu.Lock() // Ensure that no other goroutine can enter this section while one is working
+	mu.Lock() // Ensure that no other goroutine can enter this section while one is working
 
-// 	// Open the file with append mode and create if not exists
-// 	file, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-// 	if err != nil {
-// 		log.Fatal(err)
-// 	}
-// 	defer file.Close()
+	// Open the file with append mode and create if not exists
+	file, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
 
-// 	writer := csv.NewWriter(file)
-// 	defer writer.Flush()
+	writer := csv.NewWriter(file)
+	defer writer.Flush()
 
-// 	// Check and write header if not already done
-// 	if !headerWritten {
-// 		header := []string{"id_delivery", "fare"}
-// 		if err := writer.Write(header); err != nil {
-// 			log.Fatal("Error writing header:", err)
-// 		}
-// 		headerWritten = true // Set the flag to true after writing the header
-// 	}
+	// Check and write header if not already done
+	if !headerWritten {
+		header := []string{"id_delivery", "fare"}
+		if err := writer.Write(header); err != nil {
+			log.Fatal("Error writing header:", err)
+		}
+		headerWritten = true // Set the flag to true after writing the header
+	}
 
-// 	mu.Unlock() // Release the mutex lock after the header check
+	mu.Unlock() // Release the mutex lock after the header check
 
-// 	// Write the fare data
-// 	record := []string{
-// 		deliveryID,
-// 		fmt.Sprintf("%.2f", fare),
-// 	}
-// 	if err := writer.Write(record); err != nil {
-// 		log.Fatal("Error writing record:", err)
-// 	}
-// }
+	// Write the fare data
+	record := []string{
+		deliveryID,
+		fmt.Sprintf("%.2f", fare),
+	}
+	if err := writer.Write(record); err != nil {
+		log.Fatal("Error writing record:", err)
+	}
+}
