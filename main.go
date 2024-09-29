@@ -34,9 +34,6 @@ func main() {
 	var wg sync.WaitGroup
 	for chunk := range chunks {
 
-		fmt.Printf("chunk : %v\n", chunk)
-		fmt.Printf("------------------------------------------------------------------------\n")
-
 		wg.Add(1)
 		go func(chunk []DeliveryPoint) {
 			defer wg.Done()
@@ -111,46 +108,6 @@ func haversine(lat1, lon1, lat2, lon2 float64) float64 {
 
 // readDataChunks reads rows from a CSV file starting from 'startRow' for a specific delivery ID
 // until a different delivery ID is encountered.
-// func readDataChunks(deliveryID string, startRow int) ([]DeliveryPoint, error) {
-// 	file, err := os.Open("sample_data.csv")
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	defer file.Close()
-
-// 	reader := csv.NewReader(file)
-// 	var points []DeliveryPoint
-
-// 	// Move the reader to the startRow, skipping the initial rows
-// 	for i := 0; i < startRow-1; i++ {
-// 		if _, err = reader.Read(); err != nil {
-// 			return nil, err // Handle EOF or other read errors
-// 		}
-// 	}
-
-// 	// Start reading from startRow, and collect points until the ID changes
-// 	for {
-// 		line, err := reader.Read()
-// 		if err != nil {
-// 			break // Stop on EOF or other read errors
-// 		}
-// 		if line[0] != deliveryID {
-// 			break // Stop if the delivery ID is different
-// 		}
-
-// 		lat, _ := strconv.ParseFloat(line[1], 64)
-// 		lng, _ := strconv.ParseFloat(line[2], 64)
-// 		timestamp, _ := strconv.ParseInt(line[3], 10, 64)
-// 		points = append(points, DeliveryPoint{
-// 			ID:        line[0],
-// 			Latitude:  lat,
-// 			Longitude: lng,
-// 			Timestamp: timestamp,
-// 		})
-// 	}
-
-//		return points, nil
-//	}
 func readDataChunks(filePath string) (chan []DeliveryPoint, error) {
 	ch := make(chan []DeliveryPoint)
 	go func() {
@@ -228,11 +185,39 @@ func calculateFare(points []DeliveryPoint) float64 {
 	if len(points) < 2 {
 		return 0 // No fare if there's less than two points
 	}
-	var totalFare float64
+
+	// Add the standard 'flag' amount at the start of each delivery
+	var totalFare float64 = 1.30
+
 	for i := 1; i < len(points); i++ {
+		// Calculate distance between consecutive points
 		distance := haversine(points[i-1].Latitude, points[i-1].Longitude, points[i].Latitude, points[i].Longitude)
-		totalFare += distance // $1.00 per km
+		timeDiff := float64(points[i].Timestamp-points[i-1].Timestamp) / 3600.0 // Time difference in hours
+		speed := (distance / timeDiff)                                          // Speed in km/h
+
+		// Extract the hour from the timestamp (assuming timestamps are UNIX-based in seconds)
+		hour := (points[i-1].Timestamp / 3600) % 24 // Hour of the day (0 to 23)
+
+		if speed > 10 {
+			// If the vehicle is moving
+			if hour >= 5 && hour < 24 {
+				// Daytime rate: from 5:00 AM to Midnight
+				totalFare += distance * 0.74
+			} else {
+				// Nighttime rate: from Midnight to 5:00 AM
+				totalFare += distance * 1.30
+			}
+		} else {
+			// If the vehicle is idle (speed <= 10 km/h), charge based on time
+			totalFare += timeDiff * 11.90 // Idle rate
+		}
 	}
+
+	// Ensure the minimum delivery fare is 3.47
+	if totalFare < 3.47 {
+		totalFare = 3.47
+	}
+
 	return totalFare
 }
 
