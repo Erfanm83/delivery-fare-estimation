@@ -224,68 +224,6 @@ func filterInvalidPoints(points []DeliveryPoint) []DeliveryPoint {
 	return validPoints
 }
 
-// func processDeliveries(points []DeliveryPoint) map[string]float64 {
-// 	concurrency := 10 // number of goroutines
-// 	chunkSize := (len(points) + concurrency - 1) / concurrency
-// 	var wg sync.WaitGroup
-// 	wg.Add(concurrency)
-
-// 	results := make(chan map[string]float64, concurrency)
-
-// 	for i := 0; i < concurrency; i++ {
-// 		go func(chunk []DeliveryPoint) {
-// 			defer wg.Done()
-// 			filtered := filterInvalidPoints(chunk)
-// 			fares := calculateFares(filtered)
-// 			results <- fares
-// 		}(points[i*chunkSize : min((i+1)*chunkSize, len(points))])
-// 	}
-
-// 	wg.Wait()
-// 	close(results)
-
-// 	// Merge results from all chunks
-// 	finalResults := make(map[string]float64)
-// 	for result := range results {
-// 		for k, v := range result {
-// 			finalResults[k] = v
-// 		}
-// 	}
-// 	return finalResults
-// }
-
-// func min(a, b int) int {
-// 	if a < b {
-// 		return a
-// 	}
-// 	return b
-// }
-
-// func calculateFares(points []DeliveryPoint) map[string]float64 {
-// 	fares := make(map[string]float64)
-// 	var currentDelivery string
-// 	var lastPoint DeliveryPoint
-// 	for _, point := range points {
-// 		if point.ID != currentDelivery {
-// 			if currentDelivery != "" {
-// 				fares[currentDelivery] = math.Max(fares[currentDelivery]+1.3, 3.47)
-// 			}
-// 			currentDelivery = point.ID
-// 			fares[currentDelivery] = 0
-// 			lastPoint = point
-// 			continue
-// 		}
-// 		distance := haversine(lastPoint.Latitude, lastPoint.Longitude, point.Latitude, point.Longitude)
-// 		// Pricing logic, assuming some cost per km
-// 		fares[currentDelivery] += distance * 0.5
-// 		lastPoint = point
-// 	}
-// 	if currentDelivery != "" {
-// 		fares[currentDelivery] = math.Max(fares[currentDelivery]+1.3, 3.47)
-// 	}
-// 	return fares
-// }
-
 func calculateFare(points []DeliveryPoint) float64 {
 	if len(points) < 2 {
 		return 0 // No fare if there's less than two points
