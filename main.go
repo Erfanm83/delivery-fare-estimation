@@ -50,41 +50,6 @@ func main() {
 		}(chunk)
 	}
 	wg.Wait()
-
-	// start reading from the second row and look for delivery ID "2"
-	// points, err := readDataChunks("3", 58)
-	// if err != nil {
-	// 	panic(err)
-	// }
-
-	// for _, p := range points {
-	// 	fmt.Printf("ID: %s, Lat: %f, Lng: %f, Time: %d\n", p.ID, p.Latitude, p.Longitude, p.Timestamp)
-	// }
-	// fmt.Printf("we have %d of data before filtering\n", len(points))
-	// fmt.Println("After filtering : ")
-
-	// filteredPoints := filterInvalidPoints(points)
-	// Output or use filteredPoints as needed
-	// for _, p := range filteredPoints {
-	// 	fmt.Printf("ID: %s, Lat: %f, Lng: %f, Time: %d\n", p.ID, p.Latitude, p.Longitude, p.Timestamp)
-	// }
-	// fmt.Printf("we have %d of data after filtering\n", len(filteredPoints))
-
-	// finalFares := calculateFares(filteredPoints)
-
-	// file, err := os.Create("output_fares.csv")
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// defer file.Close()
-
-	// writer := csv.NewWriter(file)
-	// defer writer.Flush()
-
-	// writer.Write([]string{"id_delivery", "fare_estimate"}) // Writing header
-	// for id, fare := range finalFares {
-	// 	writer.Write([]string{id, fmt.Sprintf("%.2f", fare)})
-	// }
 }
 
 // haversine func to calculate distance
