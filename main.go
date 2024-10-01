@@ -26,12 +26,12 @@ var mu sync.Mutex
 var headerWritten = false // Global flag to ensure header is written only oncevar Header bool = false
 
 func main() {
-	chunks, err := readDataChunks("sample_data.csv")
+	chunks, err := readDataChunks("input_dataset/sample_data.csv")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	outputFile, err := os.Create("filtered_data.csv") // Create a new CSV to store the filtered data
+	outputFile, err := os.Create("output_dataset/filtered_data.csv") // Create a new CSV to store the filtered data
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -47,19 +47,17 @@ func main() {
 		wg.Add(1)
 
 		go func(chunk []DeliveryPoint) {
-			defer wg.Done()
+			defer wg.Done() // Ensure the WaitGroup knows this goroutine is done
 			if len(chunk) == 0 {
 				return
 			}
 
+			deliveryID := chunk[0].ID // Assuming all points in the chunk have the same ID
 			// Filter out invalid points
 			filteredChunk := filterInvalidPoints(chunk)
 
 			// Use a mutex to lock the file writing operation
-			mu.Lock()
-			defer mu.Unlock()
-
-			// Write the valid (filtered) points back to the CSV
+			mu.Lock() // Lock before writing
 			for _, point := range filteredChunk {
 				err := writer.Write([]string{
 					point.ID,
@@ -71,12 +69,19 @@ func main() {
 					log.Fatal("Error writing filtered point to CSV:", err)
 				}
 			}
-
 			writer.Flush() // Ensure that data is flushed to the file
+			mu.Unlock()    // Unlock after writing
+
+			// Fare calculation and writing to fare result file
+			fare := calculateFare(filteredChunk)
+			fmt.Printf("deliveryID : %v, fare : %v\n", deliveryID, fare)
+			fmt.Printf("------------------------------------------------------------------------\n")
+
+			outputFareResults("output_dataset/fares.csv", deliveryID, fare)
 		}(chunk)
 	}
 
-	wg.Wait()
+	wg.Wait() // Wait for all goroutines to finish before program exit
 }
 
 // haversine func to calculate distance
@@ -214,7 +219,7 @@ func calculateFare(points []DeliveryPoint) float64 {
 }
 
 func outputFareResults(filePath, deliveryID string, fare float64) {
-	mu.Lock() // Ensure that no other goroutine can enter this section while one is working
+	mu.Lock() // Lock the file writing operation
 
 	// Open the file with append mode and create if not exists
 	file, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
@@ -235,8 +240,6 @@ func outputFareResults(filePath, deliveryID string, fare float64) {
 		headerWritten = true // Set the flag to true after writing the header
 	}
 
-	mu.Unlock() // Release the mutex lock after the header check
-
 	// Write the fare data
 	record := []string{
 		deliveryID,
@@ -245,4 +248,6 @@ func outputFareResults(filePath, deliveryID string, fare float64) {
 	if err := writer.Write(record); err != nil {
 		log.Fatal("Error writing record:", err)
 	}
+
+	mu.Unlock() // Unlock after writing
 }
