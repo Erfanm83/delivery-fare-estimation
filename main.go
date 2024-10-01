@@ -31,24 +31,51 @@ func main() {
 		log.Fatal(err)
 	}
 
+	outputFile, err := os.Create("filtered_data.csv") // Create a new CSV to store the filtered data
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer outputFile.Close()
+	writer := csv.NewWriter(outputFile)
+	defer writer.Flush()
+
+	// Write CSV header
+	writer.Write([]string{"id_delivery", "lat", "lng", "timestamp"})
+
 	var wg sync.WaitGroup
 	for chunk := range chunks {
-
 		wg.Add(1)
+
 		go func(chunk []DeliveryPoint) {
 			defer wg.Done()
 			if len(chunk) == 0 {
 				return
 			}
-			deliveryID := chunk[0].ID // Assuming all points in the chunk have the same ID
-			filteredChunk := filterInvalidPoints(chunk)
-			fare := calculateFare(filteredChunk)
-			fmt.Printf("deliveryID : %v,fare : %v\n", deliveryID, fare)
 
-			fmt.Printf("------------------------------------------------------------------------\n")
-			outputFareResults("fares.csv", deliveryID, fare)
+			// Filter out invalid points
+			filteredChunk := filterInvalidPoints(chunk)
+
+			// Use a mutex to lock the file writing operation
+			mu.Lock()
+			defer mu.Unlock()
+
+			// Write the valid (filtered) points back to the CSV
+			for _, point := range filteredChunk {
+				err := writer.Write([]string{
+					point.ID,
+					fmt.Sprintf("%f", point.Latitude),
+					fmt.Sprintf("%f", point.Longitude),
+					fmt.Sprintf("%d", point.Timestamp),
+				})
+				if err != nil {
+					log.Fatal("Error writing filtered point to CSV:", err)
+				}
+			}
+
+			writer.Flush() // Ensure that data is flushed to the file
 		}(chunk)
 	}
+
 	wg.Wait()
 }
 
@@ -201,7 +228,7 @@ func outputFareResults(filePath, deliveryID string, fare float64) {
 
 	// Check and write header if not already done
 	if !headerWritten {
-		header := []string{"id_delivery", "fare"}
+		header := []string{"id_delivery", "fare_estimate"}
 		if err := writer.Write(header); err != nil {
 			log.Fatal("Error writing header:", err)
 		}
