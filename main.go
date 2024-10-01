@@ -46,7 +46,7 @@ func main() {
 			fmt.Printf("deliveryID : %v,fare : %v\n", deliveryID, fare)
 
 			fmt.Printf("------------------------------------------------------------------------\n")
-			outputFareResults(deliveryID, fare)
+			outputFareResults("fares.csv", deliveryID, fare)
 		}(chunk)
 	}
 	wg.Wait()
@@ -221,9 +221,7 @@ func calculateFare(points []DeliveryPoint) float64 {
 	return totalFare
 }
 
-func outputFareResults(deliveryID string, fare float64) {
-	filePath := "fares.csv"
-
+func outputFareResults(filePath, deliveryID string, fare float64) {
 	mu.Lock() // Ensure that no other goroutine can enter this section while one is working
 
 	// Open the file with append mode and create if not exists
