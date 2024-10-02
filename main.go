@@ -7,6 +7,7 @@ import (
 	"log"
 	"math"
 	"os"
+	"sort"
 	"strconv"
 	"sync"
 )
@@ -16,6 +17,12 @@ type DeliveryPoint struct {
 	Latitude  float64
 	Longitude float64
 	Timestamp int64
+}
+
+// FareRecord struct to hold each fare entry
+type FareRecord struct {
+	ID   string
+	Fare float64
 }
 
 const (
@@ -80,6 +87,8 @@ func main() {
 	}
 
 	wg.Wait() // Wait for all goroutines to finish before program exit
+	// Sort the fare file
+	sortFaresFile("output_dataset/fares.csv")
 	fmt.Printf("Program Finished Susseccfully\n\t The Fares saved at output_dataset/fares.csv")
 }
 
@@ -249,4 +258,80 @@ func outputFareResults(filePath, deliveryID string, fare float64) {
 	}
 
 	mu.Unlock() // Unlock after writing
+}
+
+// Function to sort the fare records by delivery ID numerically
+func sortFaresFile(filePath string) {
+	// Open the CSV file
+	file, err := os.Open(filePath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	// Read the CSV content
+	reader := csv.NewReader(file)
+	var records []FareRecord
+
+	// Skip header
+	_, err = reader.Read()
+	if err != nil {
+		log.Fatal("Error reading CSV header:", err)
+	}
+
+	// Read the CSV rows into a slice
+	for {
+		line, err := reader.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		// Convert the delivery ID to an integer
+		id, err := strconv.Atoi(line[0])
+		if err != nil {
+			log.Fatal("Error parsing delivery ID:", err)
+		}
+
+		// Parse the fare value as float
+		fare, err := strconv.ParseFloat(line[1], 64)
+		if err != nil {
+			log.Fatal("Error parsing fare:", err)
+		}
+
+		// Append to the slice
+		records = append(records, FareRecord{
+			ID:   strconv.Itoa(id), // Store ID as string for writing it back
+			Fare: fare,
+		})
+	}
+
+	// Sort the records numerically by ID
+	sort.Slice(records, func(i, j int) bool {
+		id1, _ := strconv.Atoi(records[i].ID)
+		id2, _ := strconv.Atoi(records[j].ID)
+		return id1 < id2
+	})
+
+	// Open the file again for writing the sorted data
+	outputFile, err := os.Create(filePath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer outputFile.Close()
+
+	writer := csv.NewWriter(outputFile)
+	defer writer.Flush()
+
+	// Write the header
+	writer.Write([]string{"id_delivery", "fare_estimate"})
+
+	// Write the sorted records back to the CSV
+	for _, record := range records {
+		writer.Write([]string{record.ID, fmt.Sprintf("%.2f", record.Fare)})
+	}
+
+	fmt.Println("Fares sorted by id_delivery numerically!")
 }
