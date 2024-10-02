@@ -26,7 +26,7 @@ var mu sync.Mutex
 var headerWritten = false // Global flag to ensure header is written only oncevar Header bool = false
 
 func main() {
-	chunks, err := readDataChunks("input_dataset/sample_data.csv")
+	chunks, err := readDataChunks("input_dataset/delivery_large_data.csv")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -74,14 +74,13 @@ func main() {
 
 			// Fare calculation and writing to fare result file
 			fare := calculateFare(filteredChunk)
-			fmt.Printf("deliveryID : %v, fare : %v\n", deliveryID, fare)
-			fmt.Printf("------------------------------------------------------------------------\n")
 
 			outputFareResults("output_dataset/fares.csv", deliveryID, fare)
 		}(chunk)
 	}
 
 	wg.Wait() // Wait for all goroutines to finish before program exit
+	fmt.Printf("Program Finished Susseccfully\n\t The Fares saved at output_dataset/fares.csv")
 }
 
 // haversine func to calculate distance
