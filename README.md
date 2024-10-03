@@ -56,16 +56,6 @@ This will process the input data, filter out invalid points, calculate delivery 
 - `output_dataset/filtered_data.csv`
 - `output_dataset/fares.csv`
 
-### Running Tests
-
-To ensure the program works correctly, you can run the unit and end-to-end tests provided in the project:
-
-```bash
-go test -v
-```
-
-This will run all the test cases and output the results.
-
 ---
 
 ## Using Custom Datasets
@@ -87,18 +77,6 @@ go run main.go
 ```
 
 The program will generate the filtered data and fare estimates for your dataset in the `output_dataset/` folder.
-
----
-
-## Short Implementation Overview
-
-- **Data Ingestion**: The program reads GPS data in chunks from the input file.
-- **Concurrency**: Each chunk is processed concurrently using Go's **goroutines**, speeding up the filtering and fare calculation process.
-- **Filtering**: The program uses the **Haversine formula** to calculate the distance between consecutive points and filters out any points where the speed exceeds 100 km/h.
-- **Fare Calculation**: Fares are calculated based on the distance, time of day (daytime or nighttime rates), and idle time. The minimum fare for any delivery is set to **3.47**.
-- **Output**: The program writes filtered data to `filtered_data.csv` and fare estimates to `fares.csv`.
-
----
 
 ## Testing
 ### Unit Test 
@@ -127,6 +105,18 @@ This will check:
 - Filtering invalid points.
 - Calculating fares.
 - Writing the final output (fares.csv and filtered_data.csv).
+---
+
+---
+
+## Short Implementation Overview
+
+- **Data Ingestion**: The program reads GPS data in chunks from the input file.
+- **Concurrency**: Each chunk is processed concurrently using Go's **goroutines**, speeding up the filtering and fare calculation process.
+- **Filtering**: The program uses the **Haversine formula** to calculate the distance between consecutive points and filters out any points where the speed exceeds 100 km/h.
+- **Fare Calculation**: Fares are calculated based on the distance, time of day (daytime or nighttime rates), and idle time. The minimum fare for any delivery is set to **3.47**.
+- **Output**: The program writes filtered data to `filtered_data.csv` and fare estimates to `fares.csv`.
+
 ---
 
 ## Notes
