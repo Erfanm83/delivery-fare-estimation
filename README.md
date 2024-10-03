@@ -1,4 +1,3 @@
-
 # Delivery Fare Estimation
 
 ## Project Overview
@@ -99,6 +98,35 @@ The program will generate the filtered data and fare estimates for your dataset 
 - **Fare Calculation**: Fares are calculated based on the distance, time of day (daytime or nighttime rates), and idle time. The minimum fare for any delivery is set to **3.47**.
 - **Output**: The program writes filtered data to `filtered_data.csv` and fare estimates to `fares.csv`.
 
+---
+
+## Testing
+### Unit Test 
+The unit tests validate individual functions like:
+
+- **haversine()**: For distance calculation between two geographical points.
+- **filterInvalidPoints()**: To ensure points that exceed the speed threshold are filtered.
+- **calculateFare()**: For correct fare estimation based on filtered points.
+Run the unit tests with:
+
+```bash
+go test -v
+```
+
+### End-to-End (E2E) Tests
+The E2E tests cover the entire flow, from reading raw data, processing it, and generating output files. The E2E tests simulate how the program will behave in a real-world scenario and ensure the correct integration of all functions.
+
+To run the end-to-end tests, use:
+
+```bash
+go test -v -run TestEndToEndFlow
+```
+This will check:
+
+- Reading the input dataset.
+- Filtering invalid points.
+- Calculating fares.
+- Writing the final output (fares.csv and filtered_data.csv).
 ---
 
 ## Notes
