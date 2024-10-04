@@ -30,10 +30,23 @@ func main() {
 	// Capture the start time of the program
 	programStartTime := time.Now()
 
-	chunks, err := readDataChunks("input_dataset/medium_data.csv")
+	chunks, err := readDataChunks("input_dataset/large_data.csv")
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	// Open the file to write filtered data
+	filteredDataFile, err := os.Create("output_dataset/filtered_data.csv")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer filteredDataFile.Close()
+
+	filteredWriter := csv.NewWriter(filteredDataFile)
+	defer filteredWriter.Flush()
+
+	// Write CSV header for filtered data
+	filteredWriter.Write([]string{"id_delivery", "lat", "lng", "timestamp"})
 
 	// Use a map to store fares by delivery ID
 	fares := make(map[int]string)
@@ -54,6 +67,19 @@ func main() {
 			if len(filteredChunk) == 0 {
 				return
 			}
+
+			// Write the filtered data to the filtered_data.csv file
+			mu.Lock()
+			for _, point := range filteredChunk {
+				filteredWriter.Write([]string{
+					point.ID,
+					fmt.Sprintf("%f", point.Latitude),
+					fmt.Sprintf("%f", point.Longitude),
+					fmt.Sprintf("%d", point.Timestamp),
+				})
+			}
+			filteredWriter.Flush()
+			mu.Unlock()
 
 			// Calculate fare
 			fare := calculateFare(filteredChunk)
@@ -103,7 +129,7 @@ func main() {
 		writer.Write([]string{strconv.Itoa(id), fares[id][len(strconv.Itoa(id))+1:]}) // strip id from fare
 	}
 
-	fmt.Println("Fares have been written successfully in output_dataset/fares successfully :)")
+	fmt.Println("Fares have been written successfully in output_dataset/fares.csv successfully :)")
 }
 
 // haversine calculates the distance between two latitude/longitude points.
@@ -125,6 +151,7 @@ func haversine(lat1, lon1, lat2, lon2 float64) float64 {
 }
 
 // readDataChunks reads rows from a CSV file and returns delivery points in chunks.
+// A Chunk means the rows with same id_delivery
 func readDataChunks(filePath string) (chan []DeliveryPoint, error) {
 	ch := make(chan []DeliveryPoint)
 	go func() {
@@ -144,7 +171,8 @@ func readDataChunks(filePath string) (chan []DeliveryPoint, error) {
 			line, err := reader.Read()
 			if err == io.EOF {
 				if len(points) > 0 {
-					ch <- points // Send the last batch
+					// Send the last banch
+					ch <- points
 				}
 				break
 			}
@@ -175,7 +203,7 @@ func readDataChunks(filePath string) (chan []DeliveryPoint, error) {
 	return ch, nil
 }
 
-// filterInvalidPoints filters out points based on speed calculations.
+// filterInvalidPoints filters points based on speed calculations.
 func filterInvalidPoints(points []DeliveryPoint) []DeliveryPoint {
 	var validPoints []DeliveryPoint
 	if len(points) == 0 {
@@ -198,7 +226,7 @@ func filterInvalidPoints(points []DeliveryPoint) []DeliveryPoint {
 	return validPoints
 }
 
-// calculateFare calculates the fare based on delivery points.
+// calculates the fare based on delivery points.
 func calculateFare(points []DeliveryPoint) float64 {
 	if len(points) < 2 {
 		return 0 // No fare if there's less than two points
@@ -208,28 +236,27 @@ func calculateFare(points []DeliveryPoint) float64 {
 	var totalFare float64 = 1.30
 
 	for i := 1; i < len(points); i++ {
-		// Calculate distance between consecutive points
 		distance := haversine(points[i-1].Latitude, points[i-1].Longitude, points[i].Latitude, points[i].Longitude)
-		timeDiff := float64(points[i].Timestamp-points[i-1].Timestamp) / 3600.0 // Time difference in hours
-		speed := (distance / timeDiff)                                          // Speed in km/h
+		timeDiff := float64(points[i].Timestamp-points[i-1].Timestamp) / 3600.0 // in hours
+		speed := (distance / timeDiff)                                          // in km/h
 
 		// Determine fare based on time of day and speed
-		hour := (points[i-1].Timestamp / 3600) % 24 // Hour of the day (0 to 23)
+		hour := (points[i-1].Timestamp / 3600) % 24
 
 		if speed > 10 {
-			// If moving
+			// moving
 			if hour >= 5 && hour < 24 {
 				totalFare += distance * 0.74
 			} else {
 				totalFare += distance * 1.30
 			}
 		} else {
-			// If idle
+			// idle
 			totalFare += timeDiff * 11.90 // Idle rate
 		}
 	}
 
-	// Ensure the minimum delivery fare is 3.47
+	// the minimum delivery fare is 3.47
 	if totalFare < 3.47 {
 		totalFare = 3.47
 	}

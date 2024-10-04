@@ -75,13 +75,12 @@ func TestEndToEndFlow(t *testing.T) {
 		}
 		writer.Flush()
 
-		// Calculate fare and write to fare result file
+		// Calculate fare and write to result file
 		fare := calculateFare(filteredChunk)
 		deliveryID := filteredChunk[0].ID
 		elapsed := time.Since(startTime)
-		fmt.Printf("Calculating id_delivery = %s, total time elapsed: %v Please wait...\n", deliveryID, elapsed)
+		fmt.Printf("Calculating delivery %s, total time elapsed: %v Please wait...\n", deliveryID, elapsed)
 
-		// Store the fare in the map
 		id, _ := strconv.Atoi(deliveryID)
 		fares[id] = fmt.Sprintf("%s,%.2f", deliveryID, fare)
 	}
@@ -90,16 +89,16 @@ func TestEndToEndFlow(t *testing.T) {
 	outputFareResultsFromMap(fares, faresFile.Name())
 
 	// 5. Verify the results
-	// Check that the fare estimates were correctly written
+	// Checks that the fare-estimatea were correctly written
 	fareData, err := os.ReadFile(faresFile.Name())
 	assert.NoError(t, err)
-	assert.Contains(t, string(fareData), "1,") // Check fare for delivery ID 1
-	assert.Contains(t, string(fareData), "2,") // Check fare for delivery ID 2
+	assert.Contains(t, string(fareData), "1,") // Check fare for id_delivery 1
+	assert.Contains(t, string(fareData), "2,") // Check fare for id_delivery 2
 
 	// Optionally, check the content of filtered data
 	filteredData, err := os.ReadFile(filteredFile.Name())
 	assert.NoError(t, err)
-	assert.Contains(t, string(filteredData), "1,35.0,51.0") // Check if first point was written correctly
+	assert.Contains(t, string(filteredData), "1,35.0,51.0")
 }
 
 // Helper function to write fare results from a map (used in main)
