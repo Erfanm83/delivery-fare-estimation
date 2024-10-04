@@ -27,28 +27,15 @@ const (
 var mu sync.Mutex
 
 func main() {
-	// Capture the start time of the program
+	// the start time of the program
 	programStartTime := time.Now()
 
-	chunks, err := readDataChunks("input_dataset/large_data.csv")
+	chunks, err := readDataChunks("input_dataset/medium_data.csv")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// Open the file to write filtered data
-	filteredDataFile, err := os.Create("output_dataset/filtered_data.csv")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer filteredDataFile.Close()
-
-	filteredWriter := csv.NewWriter(filteredDataFile)
-	defer filteredWriter.Flush()
-
-	// Write CSV header for filtered data
-	filteredWriter.Write([]string{"id_delivery", "lat", "lng", "timestamp"})
-
-	// Use a map to store fares by delivery ID
+	filteredData := make(map[int][]DeliveryPoint)
 	fares := make(map[int]string)
 
 	var wg sync.WaitGroup
@@ -68,19 +55,6 @@ func main() {
 				return
 			}
 
-			// Write the filtered data to the filtered_data.csv file
-			mu.Lock()
-			for _, point := range filteredChunk {
-				filteredWriter.Write([]string{
-					point.ID,
-					fmt.Sprintf("%f", point.Latitude),
-					fmt.Sprintf("%f", point.Longitude),
-					fmt.Sprintf("%d", point.Timestamp),
-				})
-			}
-			filteredWriter.Flush()
-			mu.Unlock()
-
 			// Calculate fare
 			fare := calculateFare(filteredChunk)
 
@@ -90,21 +64,58 @@ func main() {
 				log.Fatal("Error converting delivery ID:", err)
 			}
 
-			// Print total time elapsed since the program started
-			totalElapsed := time.Since(programStartTime)
-			fmt.Printf("Calculating delivery %d, total time elapsed: %v Please wait...\n", deliveryID, totalElapsed)
-
-			// Lock to safely write to the fares map
+			// Lock to safely store filtered data and fare
 			mu.Lock()
+			filteredData[deliveryID] = filteredChunk
 			fares[deliveryID] = fmt.Sprintf("%d,%.2f", deliveryID, fare)
 			mu.Unlock()
+
+			totalElapsed := time.Since(programStartTime)
+			fmt.Printf("Calculating delivery %d, total time elapsed: %v Please wait...\n", deliveryID, totalElapsed)
 
 		}(chunk)
 	}
 
 	wg.Wait()
 
-	// Now write the fares map to a CSV file in sorted order
+	writeFilteredData(filteredData)
+	writeFares(fares)
+
+	fmt.Println("Fares have been written successfully in output_dataset/fares.csv successfully :)")
+}
+
+// Writes filtered data in sorted order by id_delivery to filtered_data.csv
+func writeFilteredData(filteredData map[int][]DeliveryPoint) {
+	outputFile, err := os.Create("output_dataset/filtered_data.csv")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer outputFile.Close()
+
+	writer := csv.NewWriter(outputFile)
+	defer writer.Flush()
+	writer.Write([]string{"id_delivery", "lat", "lng", "timestamp"})
+
+	var deliveryIDs []int
+	for id := range filteredData {
+		deliveryIDs = append(deliveryIDs, id)
+	}
+	sort.Ints(deliveryIDs)
+
+	for _, id := range deliveryIDs {
+		for _, point := range filteredData[id] {
+			writer.Write([]string{
+				point.ID,
+				fmt.Sprintf("%f", point.Latitude),
+				fmt.Sprintf("%f", point.Longitude),
+				fmt.Sprintf("%d", point.Timestamp),
+			})
+		}
+	}
+}
+
+// Writes fares in sorted order by id_delivery to fares.csv
+func writeFares(fares map[int]string) {
 	outputFile, err := os.Create("output_dataset/fares.csv")
 	if err != nil {
 		log.Fatal(err)
@@ -113,26 +124,21 @@ func main() {
 
 	writer := csv.NewWriter(outputFile)
 	defer writer.Flush()
-
-	// Write CSV header
 	writer.Write([]string{"id_delivery", "fare_estimate"})
 
-	// Sort the delivery IDs for ordered output
 	var deliveryIDs []int
 	for id := range fares {
 		deliveryIDs = append(deliveryIDs, id)
 	}
 	sort.Ints(deliveryIDs)
 
-	// Write the fares to the CSV file in the correct order
+	// Write to the CSV file in sorted order
 	for _, id := range deliveryIDs {
-		writer.Write([]string{strconv.Itoa(id), fares[id][len(strconv.Itoa(id))+1:]}) // strip id from fare
+		writer.Write([]string{strconv.Itoa(id), fares[id][len(strconv.Itoa(id))+1:]})
 	}
-
-	fmt.Println("Fares have been written successfully in output_dataset/fares.csv successfully :)")
 }
 
-// haversine calculates the distance between two latitude/longitude points.
+// calculates the distance between two latitude/longitude points.
 func haversine(lat1, lon1, lat2, lon2 float64) float64 {
 	// Distance between latitude and longitudes
 	deltaLat := (lat2 - lat1) * math.Pi / 180.0
