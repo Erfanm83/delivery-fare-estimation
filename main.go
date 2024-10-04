@@ -30,7 +30,7 @@ func main() {
 	// Capture the start time of the program
 	programStartTime := time.Now()
 
-	chunks, err := readDataChunks("input_dataset/large_data.csv")
+	chunks, err := readDataChunks("input_dataset/medium_data.csv")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -66,7 +66,7 @@ func main() {
 
 			// Print total time elapsed since the program started
 			totalElapsed := time.Since(programStartTime)
-			fmt.Printf("Calculating id_delivery = %d, total time elapsed: %v Please wait...\n", deliveryID, totalElapsed)
+			fmt.Printf("Calculating delivery %d, total time elapsed: %v Please wait...\n", deliveryID, totalElapsed)
 
 			// Lock to safely write to the fares map
 			mu.Lock()
