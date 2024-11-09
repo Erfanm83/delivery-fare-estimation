@@ -38,10 +38,6 @@ func main() {
 	programStartTime := time.Now()
 
 	chunks, err := readDataChunks("input_dataset/huge_data.csv")
-	// for i := 0; i < len(chunks); i++ {
-	// 	fmt.Printf("%v\n", <-chunks)
-	// }
-	// fmt.Printf("%v\n", chunks)
 	if err != nil {
 		log.Fatal(err)
 	}
