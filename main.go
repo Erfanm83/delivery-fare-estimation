@@ -25,12 +25,23 @@ const (
 )
 
 var mu sync.Mutex
+var wg sync.WaitGroup
+var temp_data DeliveryPoint
+var p1 DeliveryPoint
+var p2 DeliveryPoint
+var distance float64
+var timeDiff float64
+var totalFare float64
 
 func main() {
 	// the start time of the program
 	programStartTime := time.Now()
 
-	chunks, err := readDataChunks("input_dataset/medium_data.csv")
+	chunks, err := readDataChunks("input_dataset/huge_data.csv")
+	// for i := 0; i < len(chunks); i++ {
+	// 	fmt.Printf("%v\n", <-chunks)
+	// }
+	// fmt.Printf("%v\n", chunks)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -38,7 +49,6 @@ func main() {
 	filteredData := make(map[int][]DeliveryPoint)
 	fares := make(map[int]string)
 
-	var wg sync.WaitGroup
 	for chunk := range chunks {
 		wg.Add(1)
 
@@ -49,69 +59,72 @@ func main() {
 				return
 			}
 
-			// Filter invalid points
-			filteredChunk := filterInvalidPoints(chunk)
-			if len(filteredChunk) == 0 {
-				return
+			if len(chunk) > 0 {
+				temp_data = chunk[0]
 			}
 
-			// Calculate fare
-			fare := calculateFare(filteredChunk)
+			totalFare = 0.0
+			for i := 1; i < len(chunk); i++ {
+				p1 = temp_data
+				p2 = chunk[i]
+				distance = haversine(p1.Latitude, p1.Longitude, p2.Latitude, p2.Longitude)
+				timeDiff = math.Abs(float64(p2.Timestamp - p1.Timestamp))
+				speed := (distance / timeDiff)
+
+				// The point is Valid
+				if speed*36 <= 1 {
+					if speed > 10 {
+						// moving
+						// Determine fare based on time of day and speed
+						hour := (temp_data.Timestamp / 3600) % 24
+						if hour >= 5 && hour < 24 {
+							totalFare += distance * 0.74 // daytime rate
+						} else {
+							totalFare += distance * 1.30 // midnighttime rate
+						}
+					} else {
+						// idle
+						totalFare += timeDiff * 11.90 // Idle rate
+					}
+
+					temp_data = p2
+				}
+
+			}
+			// the minimum delivery fare is 3.47
+			if totalFare < 3.47 {
+				totalFare = 3.47
+			}
+
+			// correct
+			// fmt.Printf("temp_data : %v\n", temp_data)
 
 			// Convert deliveryID to int for sorting later
-			deliveryID, err := strconv.Atoi(filteredChunk[0].ID)
+			deliveryID, err := strconv.Atoi(chunk[0].ID)
 			if err != nil {
 				log.Fatal("Error converting delivery ID:", err)
 			}
 
 			// Lock to safely store filtered data and fare
 			mu.Lock()
-			filteredData[deliveryID] = filteredChunk
-			fares[deliveryID] = fmt.Sprintf("%d,%.2f", deliveryID, fare)
+			filteredData[deliveryID] = chunk
+			fares[deliveryID] = fmt.Sprintf("%d,%.2f", deliveryID, totalFare)
 			mu.Unlock()
 
-			totalElapsed := time.Since(programStartTime)
-			fmt.Printf("Calculating delivery %d, total time elapsed: %v Please wait...\n", deliveryID, totalElapsed)
+			// totalElapsed := time.Since(programStartTime)
+			// fmt.Printf("Calculating delivery %d, total time elapsed: %v Please wait...\n", deliveryID, totalElapsed)
 
 		}(chunk)
 	}
 
 	wg.Wait()
 
-	writeFilteredData(filteredData)
+	// writeFilteredData(filteredData)
 	writeFares(fares)
 
+	totalElapsed := time.Since(programStartTime)
+	fmt.Printf("total time elapsed: %v\n", totalElapsed)
 	fmt.Println("Fares have been written successfully in output_dataset/fares.csv successfully :)")
-}
-
-// Writes filtered data in sorted order by id_delivery to filtered_data.csv
-func writeFilteredData(filteredData map[int][]DeliveryPoint) {
-	outputFile, err := os.Create("output_dataset/filtered_data.csv")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer outputFile.Close()
-
-	writer := csv.NewWriter(outputFile)
-	defer writer.Flush()
-	writer.Write([]string{"id_delivery", "lat", "lng", "timestamp"})
-
-	var deliveryIDs []int
-	for id := range filteredData {
-		deliveryIDs = append(deliveryIDs, id)
-	}
-	sort.Ints(deliveryIDs)
-
-	for _, id := range deliveryIDs {
-		for _, point := range filteredData[id] {
-			writer.Write([]string{
-				point.ID,
-				fmt.Sprintf("%f", point.Latitude),
-				fmt.Sprintf("%f", point.Longitude),
-				fmt.Sprintf("%d", point.Timestamp),
-			})
-		}
-	}
 }
 
 // Writes fares in sorted order by id_delivery to fares.csv
