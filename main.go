@@ -182,6 +182,8 @@ func readDataChunks(filePath string) (chan []DeliveryPoint, error) {
 		var currentID string
 		var points []DeliveryPoint
 
+		reader.Read()
+
 		for {
 			line, err := reader.Read()
 			if err == io.EOF {
@@ -190,8 +192,7 @@ func readDataChunks(filePath string) (chan []DeliveryPoint, error) {
 					ch <- points
 				}
 				break
-			}
-			if err != nil {
+			} else if err != nil {
 				log.Fatal(err)
 				return
 			}
@@ -201,18 +202,16 @@ func readDataChunks(filePath string) (chan []DeliveryPoint, error) {
 				points = nil // Start a new batch
 			}
 
-			if line[0] != "id_delivery" {
-				currentID = line[0]
-				lat, _ := strconv.ParseFloat(line[1], 64)
-				lng, _ := strconv.ParseFloat(line[2], 64)
-				timestamp, _ := strconv.ParseInt(line[3], 10, 64)
-				points = append(points, DeliveryPoint{
-					ID:        line[0],
-					Latitude:  lat,
-					Longitude: lng,
-					Timestamp: timestamp,
-				})
-			}
+			currentID = line[0]
+			lat, _ := strconv.ParseFloat(line[1], 64)
+			lng, _ := strconv.ParseFloat(line[2], 64)
+			timestamp, _ := strconv.ParseInt(line[3], 10, 64)
+			points = append(points, DeliveryPoint{
+				ID:        line[0],
+				Latitude:  lat,
+				Longitude: lng,
+				Timestamp: timestamp,
+			})
 		}
 	}()
 	return ch, nil
