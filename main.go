@@ -96,7 +96,7 @@ func main() {
 			continue
 		}
 
-		distance := haversine(tempData.Latitude, tempData.Longitude, currentPoint.Latitude, currentPoint.Longitude)
+		distance := Fasthaversine(tempData.Latitude, tempData.Longitude, currentPoint.Latitude, currentPoint.Longitude)
 		timeDiff := math.Abs(float64(currentPoint.Timestamp - tempData.Timestamp))
 		speed := (distance / timeDiff) * 3.60
 
