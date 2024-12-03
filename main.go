@@ -1,12 +1,13 @@
 package main
 
 import (
-	"encoding/csv"
+	"bufio"
 	"fmt"
 	"log"
 	"math"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -14,7 +15,7 @@ type DeliveryPoint struct {
 	ID        string
 	Latitude  float64
 	Longitude float64
-	Timestamp int64
+	Timestamp int
 }
 
 const (
@@ -28,51 +29,49 @@ func main() {
 	var tempData DeliveryPoint
 	var totalFare float64
 
-	// Start time of the program
 	programStartTime := time.Now()
 
-	// Open input file
 	inputFile, err := os.Open("input_dataset/huge_data.csv")
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer inputFile.Close()
 
-	// Create output file
+	bufferedReader := bufio.NewReader(bufio.NewReaderSize(inputFile, 1e9))
+
 	outputFile, err := os.Create("output_dataset/fares.csv")
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer outputFile.Close()
 
-	writer := csv.NewWriter(outputFile)
+	writer := bufio.NewWriter(outputFile)
 	defer writer.Flush()
-	writer.Write([]string{"id_delivery", "fare_estimate"})
+	writer.WriteString("id_delivery,fare_estimate\n")
 
-	reader := csv.NewReader(inputFile)
-	_, err = reader.Read() // Skip header
+	headerLine, err := bufferedReader.ReadString('\n')
 	if err != nil {
 		log.Fatal(err)
 	}
+	_ = headerLine
 
 	for {
-		line, err := reader.Read()
-		// unexpected error
+		line, err := bufferedReader.ReadString('\n')
 		if err != nil {
 			if len(currentID) > 0 {
-				// Write a very basic fare
 				if totalFare < 3.47 {
 					totalFare = 3.47
 				}
-				writer.Write([]string{currentID, fmt.Sprintf("%.2f", totalFare)})
+				writer.WriteString(fmt.Sprintf("%s,%.2f\n", currentID, totalFare))
 			}
 			break
 		}
 
-		deliveryID := line[0]
-		lat, _ := strconv.ParseFloat(line[1], 64)
-		lng, _ := strconv.ParseFloat(line[2], 64)
-		timestamp, _ := strconv.ParseInt(line[3], 10, 64)
+		fields := strings.Split(strings.TrimSpace(line), ",")
+		deliveryID := fields[0]
+		lat, _ := strconv.ParseFloat(fields[1], 64)
+		lng, _ := strconv.ParseFloat(fields[2], 64)
+		timestamp, _ := strconv.Atoi(fields[3])
 
 		currentPoint := DeliveryPoint{
 			ID:        deliveryID,
@@ -87,7 +86,7 @@ func main() {
 				if totalFare < 3.47 {
 					totalFare = 3.47
 				}
-				writer.Write([]string{currentID, fmt.Sprintf("%.2f", totalFare)})
+				writer.WriteString(fmt.Sprintf("%s,%.2f\n", currentID, totalFare))
 			}
 
 			// Start a new delivery calculation
@@ -97,23 +96,22 @@ func main() {
 			continue
 		}
 
-		distance := fastHaversine(tempData.Latitude, tempData.Longitude, currentPoint.Latitude, currentPoint.Longitude)
+		distance := haversine(tempData.Latitude, tempData.Longitude, currentPoint.Latitude, currentPoint.Longitude)
 		timeDiff := math.Abs(float64(currentPoint.Timestamp - tempData.Timestamp))
-		speed := distance / timeDiff * 3600.0
+		speed := (distance / timeDiff) * 3.60
 
-		// Calculate fare based on speed and time of day
-		if speed <= 100 { // Valid speed threshold
+		if speed <= 100 {
 			hour := (tempData.Timestamp / 3600) % 24
 			if speed > 10 {
 				// Moving
 				if hour >= 5 && hour < 24 {
-					totalFare += distance * 0.74 // Daytime rate
+					totalFare += distance * 0.74
 				} else {
-					totalFare += distance * 1.30 // Midnight rate
+					totalFare += distance * 1.30
 				}
 			} else {
 				// Idle
-				totalFare += (timeDiff / 3600.0) * 11.90 // Idle rate per hour
+				totalFare += (timeDiff / 3600.0) * 11.90
 			}
 			tempData = currentPoint
 		}
@@ -125,6 +123,14 @@ func main() {
 }
 
 // calculates the distance between two latitude/longitude points.
+func Fasthaversine(lat1, lon1, lat2, lon2 float64) float64 {
+	lat1, lon1, lat2, lon2 = lat1*degToRad, lon1*degToRad, lat2*degToRad, lon2*degToRad
+
+	// spherical law of cosines for faster approximation
+	return radiusEarthKm * math.Acos(math.Sin(lat1)*math.Sin(lat2)+
+		math.Cos(lat1)*math.Cos(lat2)*math.Cos(lon2-lon1))
+}
+
 func haversine(lat1, lon1, lat2, lon2 float64) float64 {
 	// Distance between latitude and longitudes
 	deltaLat := (lat2 - lat1) * c
@@ -140,13 +146,4 @@ func haversine(lat1, lon1, lat2, lon2 float64) float64 {
 	d := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
 
 	return radiusEarthKm * d
-}
-
-func fastHaversine(lat1, lon1, lat2, lon2 float64) float64 {
-	// Convert degrees to radians
-	lat1, lon1, lat2, lon2 = lat1*degToRad, lon1*degToRad, lat2*degToRad, lon2*degToRad
-
-	// Using the spherical law of cosines for faster approximation
-	return radiusEarthKm * math.Acos(math.Sin(lat1)*math.Sin(lat2)+
-		math.Cos(lat1)*math.Cos(lat2)*math.Cos(lon2-lon1))
 }
